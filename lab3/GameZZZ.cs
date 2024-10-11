@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
-ECS»òMVC¸ÅÄîÓ¦ÓÃÓÚĞ¡ÓÎÏ·
-Ê×ÏÈ£¬½«ÊµÌå¼°Æä×´Ì¬¶¨ÒåÎª²©ŞÄÄ£ĞÍ¡£
-È»ºó£¬¸ø³öÒ»Ğ©¿ÉÒÔĞŞ¸ÄÓÎÏ·Ä£ĞÍµÄ×é¼ş/¿Ø¼ş¡£
-×îºó£¬ÓÎÏ·È¦µ÷ÓÃµÄÏµÍ³´¦Àí³ÌĞòOnGUIÌá¹©ÁËÒ»¸öÓÎÏ·UIÊÓÍ¼¡£
+ECSæˆ–MVCæ¦‚å¿µåº”ç”¨äºå°æ¸¸æˆ
+é¦–å…ˆï¼Œå°†å®ä½“åŠå…¶çŠ¶æ€å®šä¹‰ä¸ºåšå¼ˆæ¨¡å‹ã€‚
+ç„¶åï¼Œç»™å‡ºä¸€äº›å¯ä»¥ä¿®æ”¹æ¸¸æˆæ¨¡å‹çš„ç»„ä»¶/æ§ä»¶ã€‚
+æœ€åï¼Œæ¸¸æˆåœˆè°ƒç”¨çš„ç³»ç»Ÿå¤„ç†ç¨‹åºOnGUIæä¾›äº†ä¸€ä¸ªæ¸¸æˆUIè§†å›¾ã€‚
 */
 
 public class GameZZZ : MonoBehaviour
@@ -15,6 +15,7 @@ public class GameZZZ : MonoBehaviour
     // Model
     private class GameModel
     {
+        private GameView v;
         public int player = 1;
         public int nul = 0;
         public int bin = 2;
@@ -45,10 +46,63 @@ public class GameZZZ : MonoBehaviour
             board[goalx2, goaly2] = goal;
         }
 
+
+        private int[] dx = { 1, 0, -1, 0 };
+        private int[] dy = { 0, 1, 0, -1 };
+
+        public int MoveLeft(int x, int y) => Move(2, x, y);
+        public int MoveRight(int x, int y) => Move(0, x, y);
+        public int MoveUp(int x, int y) => Move(3, x, y);
+        public int MoveDown(int x, int y) => Move(1, x, y);
+
+        int Move(int direction, int x, int y)
+        {
+            int next = CheckNext(direction, x, y);
+            switch (next)
+            {
+                case 0: // nothing
+                    board[x, y] = nul;
+                    board[x + dx[direction], y + dy[direction]] = player;
+                    return 1;
+                case 1: // box
+                    int n = CheckNext(direction, x + dx[direction], y + dy[direction]);
+                    if (n == 2 || n == 1) // next is obstacle or box
+                    {
+                        board[x, y] = bin;
+                        board[x + dx[direction], y + dy[direction]] = player;
+                    }
+                    else if (n == 0) // next is empty
+                    {
+                        board[x, y] = nul;
+                        board[x + dx[direction], y + dy[direction]] = player;
+                        board[x + dx[direction] + dx[direction], y + dy[direction] + dy[direction]] = bin;   
+                    }
+                    return 1;
+                case 2: // wall
+                    return 0;
+            }
+            return 0;
+        }
+
+        int CheckNext(int direction, int x, int y)
+        {
+            if (x + dx[direction] < 0 || x + dx[direction] >= 5 || y + dy[direction] < 0 || y + dy[direction] >= 5)
+                return 2; // wall
+            if (board[x + dx[direction], y + dy[direction]] == nul)
+                return 0; // nothing
+            if (board[x + dx[direction], y + dy[direction]] == bin)
+                return 1; // box
+            if (board[x + dx[direction], y + dy[direction]] == goal)
+                return 0; // goal
+            return 2; // wall
+        }
+
+
         public bool GameOver()
         {
             return board[goalx, goaly] == bin && board[goalx2, goaly2] == bin;
         }
+
     }
 
     // View
@@ -63,8 +117,8 @@ public class GameZZZ : MonoBehaviour
         public AudioSource audioSource;
         public AudioClip moveSound;
 
-        // ´´½¨²¢³õÊ¼»¯Ò»¸ö 5x5 µÄ¶şÎ¬Êı×é£¬ËùÓĞÔªËØ³õÊ¼»¯Îª 0
-        //ÓÃÓÚÏÔÊ¾Íê³ÉµÄÍ¼°¸
+        // åˆ›å»ºå¹¶åˆå§‹åŒ–ä¸€ä¸ª 5x5 çš„äºŒç»´æ•°ç»„ï¼Œæ‰€æœ‰å…ƒç´ åˆå§‹åŒ–ä¸º 0
+        //ç”¨äºæ˜¾ç¤ºå®Œæˆçš„å›¾æ¡ˆ
         int[,] winMap = new int[5, 5]
         {
             { 0, 1, 2, 0, 2 },
@@ -145,7 +199,7 @@ public class GameZZZ : MonoBehaviour
 
             for (int i = 0; i < colors.Length; i++)
             {
-                colors[i] = color; // Ìî³äÑÕÉ«
+                colors[i] = color; // å¡«å……é¢œè‰²
             }
             texture.SetPixels(colors);
             texture.Apply();
@@ -199,14 +253,17 @@ public class GameZZZ : MonoBehaviour
 
             view.Render(model.board, playerX, playerY, model.goalx, model.goaly, model.goalx2, model.goaly2);
 
+            int isMove = 0;
             if (GUI.Button(new Rect(120 + 395, 25 + 220, 70, 70), "<"))
-                MoveLeft(playerX, playerY);
+                isMove = model.MoveLeft(playerX, playerY);
             if (GUI.Button(new Rect(120 + 437, 25 + 300, 70, 70), "v"))
-                MoveDown(playerX, playerY);
+                isMove = model.MoveDown(playerX, playerY);
             if (GUI.Button(new Rect(120 + 480, 25 + 220, 70, 70), ">"))
-                MoveRight(playerX, playerY);
+                isMove = model.MoveRight(playerX, playerY);
             if (GUI.Button(new Rect(120 + 437, 25 + 140, 70, 70), "^"))
-                MoveUp(playerX, playerY);
+                isMove = model.MoveUp(playerX, playerY);
+            if(isMove==1)
+                view.audioSource.PlayOneShot(view.moveSound);
         }
         else
         {
@@ -214,55 +271,4 @@ public class GameZZZ : MonoBehaviour
         }
     }
 
-    private int[] dx = { 1, 0, -1, 0 };
-    private int[] dy = { 0, 1, 0, -1 };
-
-    void MoveLeft(int x, int y) => Move(2, x, y);
-    void MoveRight(int x, int y) => Move(0, x, y);
-    void MoveUp(int x, int y) => Move(3, x, y);
-    void MoveDown(int x, int y) => Move(1, x, y);
-
-    void Move(int direction, int x, int y)
-    {
-        int next = CheckNext(direction, x, y);
-        switch (next)
-        {
-            case 0: // nothing
-                model.board[x, y] = model.nul;
-                model.board[x + dx[direction], y + dy[direction]] = model.player;
-                view.audioSource.PlayOneShot(view.moveSound);
-                break;
-            case 1: // box
-                int n = CheckNext(direction, x + dx[direction], y + dy[direction]);
-                if (n == 2 || n == 1) // next is obstacle or box
-                {
-                    model.board[x, y] = model.bin;
-                    model.board[x + dx[direction], y + dy[direction]] = model.player;
-                    view.audioSource.PlayOneShot(view.moveSound);
-                }
-                else if (n == 0) // next is empty
-                {
-                    model.board[x, y] = model.nul;
-                    model.board[x + dx[direction], y + dy[direction]] = model.player;
-                    model.board[x + dx[direction] + dx[direction], y + dy[direction] + dy[direction]] = model.bin;
-                    view.audioSource.PlayOneShot(view.moveSound);
-                }
-                break;
-            case 2: // wall
-                break;
-        }
-    }
-
-    int CheckNext(int direction, int x, int y)
-    {
-        if (x + dx[direction] < 0 || x + dx[direction] >= 5 || y + dy[direction] < 0 || y + dy[direction] >= 5)
-            return 2; // wall
-        if (model.board[x + dx[direction], y + dy[direction]] == model.nul)
-            return 0; // nothing
-        if (model.board[x + dx[direction], y + dy[direction]] == model.bin)
-            return 1; // box
-        if (model.board[x + dx[direction], y + dy[direction]] == model.goal)
-            return 0; // goal
-        return 2; // wall
-    }
 }
